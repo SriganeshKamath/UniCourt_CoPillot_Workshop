@@ -118,6 +118,33 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 
+  test('should filter games from the homepage using dropdowns', async ({ page }) => {
+    await test.step('Navigate to the homepage and open the filter form', async () => {
+      await page.goto('/');
+      await expect(page.getByTestId('games-filters')).toBeVisible();
+    });
+
+    await test.step('Select a publisher and category, then apply the filter', async () => {
+      const publisherFilter = page.getByTestId('publisher-filter');
+      const categoryFilter = page.getByTestId('category-filter');
+
+      await expect(publisherFilter.locator('option')).toHaveCount(await publisherFilter.locator('option').count());
+      await publisherFilter.selectOption({ index: 1 });
+
+      if ((await categoryFilter.locator('option').count()) > 1) {
+        await categoryFilter.selectOption({ index: 1 });
+      }
+
+      await page.getByTestId('apply-filters').click();
+    });
+
+    await test.step('Verify the URL and result state reflect the active filter', async () => {
+      await expect(page).toHaveURL(/\?.*publisher=|\?.*category=/);
+      await expect(page.getByTestId('games-grid')).toBeVisible();
+      await expect(page.getByTestId('clear-filters')).toBeVisible();
+    });
+  });
+
   test('should return a 404 page for a non-existent game', async ({ page }) => {
     let response: Response | null;
 

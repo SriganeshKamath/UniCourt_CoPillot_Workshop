@@ -30,6 +30,44 @@ async function seedGames(db: Database, count: number): Promise<void> {
     }
 }
 
+async function seedFilteredGames(db: Database): Promise<{
+    strategyCategoryId: number;
+    racingCategoryId: number;
+    pubOneId: number;
+    pubTwoId: number;
+}> {
+    const [strategyCategory] = await db
+        .insert(categories)
+        .values({ name: 'Strategy', description: 'strategic play' })
+        .returning({ id: categories.id });
+    const [racingCategory] = await db
+        .insert(categories)
+        .values({ name: 'Racing', description: 'speed play' })
+        .returning({ id: categories.id });
+    const [pubOne] = await db
+        .insert(publishers)
+        .values({ name: 'Pub One', description: 'pub one' })
+        .returning({ id: publishers.id });
+    const [pubTwo] = await db
+        .insert(publishers)
+        .values({ name: 'Pub Two', description: 'pub two' })
+        .returning({ id: publishers.id });
+
+    await db.insert(games).values([
+        { title: 'Apex Rally', description: 'racing', starRating: 4.7, categoryId: racingCategory.id, publisherId: pubOne.id },
+        { title: 'Cobalt Circuit', description: 'racing', starRating: 4.6, categoryId: racingCategory.id, publisherId: pubTwo.id },
+        { title: 'Castle Siege', description: 'strategy', starRating: 4.8, categoryId: strategyCategory.id, publisherId: pubOne.id },
+        { title: 'Deep Frontier', description: 'strategy', starRating: 4.3, categoryId: strategyCategory.id, publisherId: pubTwo.id },
+    ]);
+
+    return {
+        strategyCategoryId: strategyCategory.id,
+        racingCategoryId: racingCategory.id,
+        pubOneId: pubOne.id,
+        pubTwoId: pubTwo.id,
+    };
+}
+
 describe('games data-access helpers', () => {
     let db: Database;
 
@@ -62,5 +100,41 @@ describe('games data-access helpers', () => {
     it('returns null for a non-existent game', async () => {
         await seedGames(db, 2);
         expect(await getGameById(db, 99999)).toBeNull();
+    });
+
+    it('filters games by publisher', async () => {
+        const ids = await seedFilteredGames(db);
+        const filtered = await getAllGames(db, { publisherId: ids.pubOneId });
+
+        expect(filtered.map((game) => game.title)).toEqual(['Apex Rally', 'Castle Siege']);
+        expect(filtered.every((game) => game.publisher?.id === ids.pubOneId)).toBe(true);
+    });
+
+    it('filters games by category', async () => {
+        const ids = await seedFilteredGames(db);
+        const filtered = await getAllGames(db, { categoryId: ids.strategyCategoryId });
+
+        expect(filtered.map((game) => game.title)).toEqual(['Castle Siege', 'Deep Frontier']);
+        expect(filtered.every((game) => game.category?.id === ids.strategyCategoryId)).toBe(true);
+    });
+
+    it('filters games by both publisher and category', async () => {
+        const ids = await seedFilteredGames(db);
+        const filtered = await getAllGames(db, {
+            publisherId: ids.pubOneId,
+            categoryId: ids.racingCategoryId,
+        });
+
+        expect(filtered.map((game) => game.title)).toEqual(['Apex Rally']);
+    });
+
+    it('returns an empty list when filters do not match any game', async () => {
+        const ids = await seedFilteredGames(db);
+        const filtered = await getAllGames(db, {
+            publisherId: ids.pubOneId,
+            categoryId: ids.racingCategoryId + 999,
+        });
+
+        expect(filtered).toEqual([]);
     });
 });
