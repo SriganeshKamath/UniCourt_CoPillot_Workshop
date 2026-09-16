@@ -188,6 +188,39 @@ test.describe('Accessibility Tests', () => {
     expect(contrastViolations).toEqual([]);
   });
 
+  test('high contrast mode - should toggle and persist preference', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-testid="games-grid"]', { timeout: 10000 });
+
+    const toggle = page.getByTestId('high-contrast-toggle');
+    const label = page.getByTestId('high-contrast-label');
+
+    await test.step('Toggle high contrast mode on', async () => {
+      await expect(toggle).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await toggle.click();
+      await expect(page.locator('html')).toHaveAttribute('data-high-contrast', 'true');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      await expect(label).toHaveText('High contrast on');
+    });
+
+    await test.step('Reload and confirm the preference persists', async () => {
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('data-high-contrast', 'true');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      await expect(label).toHaveText('High contrast on');
+    });
+
+    await test.step('Toggle high contrast mode back off', async () => {
+      await toggle.click();
+      await expect(page.locator('html')).toHaveAttribute('data-high-contrast', 'false');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await expect(label).toHaveText('High contrast');
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('data-high-contrast', 'false');
+    });
+  });
+
   test('semantic HTML - main landmarks should be present', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('[data-testid="games-grid"]', { timeout: 10000 });
